@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'services/benchmark_service.dart';
+import '../services/benchmark_service.dart';
 import 'ui_test_page.dart';
 
 class BenchmarkPage extends StatefulWidget {
