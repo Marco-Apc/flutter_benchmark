@@ -1,6 +1,8 @@
+import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
 import 'package:flutter/foundation.dart';
+import 'package:http/http.dart' as http;
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:sqflite/sqflite.dart';
@@ -15,6 +17,38 @@ double _performSort(int count) {
   stopwatch.stop();
 
   return stopwatch.elapsedMicroseconds / 1000.0;
+}
+
+// Modelo de dados para o teste de JSON
+class MockPost {
+  final int id;
+  final String title;
+  final String body;
+  final int userId;
+
+  MockPost(this.id, this.title, this.body, this.userId);
+
+  Map<String, dynamic> toJson() => {
+    'id': id,
+    'title': title,
+    'body': body,
+    'userId': userId,
+  };
+
+  factory MockPost.fromJson(Map<String, dynamic> json) {
+    return MockPost(json['id'], json['title'], json['body'], json['userId']);
+  }
+}
+
+// Função isolada para o parsing de JSON (para rodar no compute)
+int _parseJsonTask(String jsonString) {
+  // Decodifica a string para List<dynamic>
+  final List<dynamic> parsed = jsonDecode(jsonString);
+  // Converte cada item para o objeto MockPost
+  final posts = parsed
+      .map<MockPost>((json) => MockPost.fromJson(json))
+      .toList();
+  return posts.length;
 }
 
 class BenchmarkService {
@@ -135,5 +169,39 @@ class BenchmarkService {
   Future<double> getMemoryUsage() async {
     // RSS (Resident Set Size) = Total Physical Memory used by the process
     return ProcessInfo.currentRss / (1024 * 1024);
+  }
+
+  Future<double> runNetworkBenchmark() async {
+    final stopwatch = Stopwatch()..start();
+
+    // Faz a requisição GET
+    final response = await http.get(
+      Uri.parse('https://jsonplaceholder.typicode.com/photos'),
+    );
+
+    stopwatch.stop();
+
+    if (response.statusCode == 200) {
+      return stopwatch.elapsedMicroseconds / 1000.0;
+    } else {
+      throw Exception("Erro: ${response.statusCode}");
+    }
+  }
+
+  Future<String> generateJsonData() async {
+    return await compute((_) {
+      final list = List.generate(
+        10000,
+        (i) => MockPost(i, "Título $i", "Corpo repetido $i", i),
+      );
+      return jsonEncode(list); // Usa dart:convert
+    }, null);
+  }
+
+  Future<double> runJsonBenchmark(String jsonString) async {
+    final stopwatch = Stopwatch()..start();
+    await compute(_parseJsonTask, jsonString);
+    stopwatch.stop();
+    return stopwatch.elapsedMicroseconds / 1000.0;
   }
 }

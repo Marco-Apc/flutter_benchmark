@@ -204,6 +204,20 @@ class _BenchmarkPageState extends State<BenchmarkPage> {
             ),
 
             const SizedBox(height: 24),
+
+            _buildSectionTitle('Testes de Rede e JSON'),
+            _buildTestRow(
+              'network',
+              'GET 5k Photos (Net)',
+              () => _runNetworkTest('network'),
+            ),
+            _buildTestRow(
+              'json',
+              'Parse 10k Items (CPU)',
+              () => _runJsonTest('json'),
+            ),
+
+            const SizedBox(height: 24),
             _buildSectionTitle('Testes de UI (Renderização)'),
             Padding(
               padding: const EdgeInsets.symmetric(vertical: 4.0),
@@ -237,6 +251,40 @@ class _BenchmarkPageState extends State<BenchmarkPage> {
         ),
       ),
     );
+  }
+
+  /// Teste de Rede: Baixa 5000 itens do JSONPlaceholder
+  Future<void> _runNetworkTest(String key) async {
+    setState(() => _results[key] = "Baixando...");
+    try {
+      final time = await _benchmarkService.runNetworkBenchmark();
+      if (mounted) {
+        setState(() => _results[key] = "${time.toStringAsFixed(3)} ms");
+      }
+    } catch (e) {
+      if (mounted) setState(() => _results[key] = "Erro Net");
+    }
+  }
+
+  /// Teste de JSON: Gera string e mede o parsing
+  Future<void> _runJsonTest(String key) async {
+    setState(() => _results[key] = "Gerando...");
+
+    // 1. Preparação: Gera String JSON gigante (fora do timer)
+    final jsonString = await _benchmarkService.generateJsonData();
+
+    if (!mounted) return;
+    setState(() => _results[key] = "Parsing...");
+
+    // 2. Teste: Mede o tempo de parsing (String -> List<Object>)
+    try {
+      final time = await _benchmarkService.runJsonBenchmark(jsonString);
+      if (mounted) {
+        setState(() => _results[key] = "${time.toStringAsFixed(3)} ms");
+      }
+    } catch (e) {
+      if (mounted) setState(() => _results[key] = "Erro JSON");
+    }
   }
 
   Widget _buildSectionTitle(String title) {
